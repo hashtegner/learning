@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
@@ -12,6 +13,8 @@ type problem struct {
 	question string
 	answer   string
 }
+
+var input = bufio.NewScanner(os.Stdin)
 
 func main() {
 	filename := flag.String("csv", "quiz.csv", "a csv file in the format 'question,answer'")
@@ -26,6 +29,9 @@ func main() {
 	}
 
 	problems := parseQuestions(lines)
+
+	fmt.Println("Press [enter] to start quiz...")
+	input.Scan()
 
 	correct := makeQuiz(problems, *timeout)
 
@@ -90,7 +96,9 @@ func makeQuestion(number int, p problem) bool {
 	var answer string
 
 	fmt.Printf("%d) %s: ", number, p.question)
-	fmt.Scanf("%s\n", &answer)
+	input.Scan()
+
+	answer = input.Text()
 
 	return p.answer == answer
 }
