@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 type problem struct {
@@ -14,6 +15,7 @@ type problem struct {
 
 func main() {
 	filename := flag.String("csv", "quiz.csv", "a csv file in the format 'question,answer'")
+	timeout := flag.Int("timer", 30, "time limit for the quiz in seconds")
 
 	flag.Parse()
 
@@ -25,9 +27,9 @@ func main() {
 
 	problems := parseQuestions(lines)
 
-	correct := makeQuiz(problems)
+	correct := makeQuiz(problems, *timeout)
 
-	fmt.Printf("\nDone!\n %d correct answers over %d questions\n", len(problems), correct)
+	fmt.Printf("\nDone!\n %d correct answers over %d questions\n", correct, len(problems))
 }
 
 func readFile(filename string) ([][]string, error) {
@@ -57,12 +59,27 @@ func parseQuestions(lines [][]string) []problem {
 	return problems
 }
 
-func makeQuiz(problems []problem) int {
+func makeQuiz(problems []problem, timeout int) int {
 	var correct int
+	timer := time.NewTimer(time.Second * time.Duration(timeout))
 
+quizloop:
 	for i, p := range problems {
-		if makeQuestion(i+1, p) {
-			correct++
+		c := make(chan bool)
+
+		go func() {
+			c <- makeQuestion(i+1, p)
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Println("\n\nYour time is over!")
+			break quizloop
+
+		case answer := <-c:
+			if answer {
+				correct++
+			}
 		}
 	}
 
