@@ -1,105 +1,51 @@
 package main
 
 import (
-	"bytes"
-	"database/sql"
+	"fmt"
+	"github.com/alesshh/learning/go/gophercises/phone-number-normalizer/normalizer"
+	"github.com/alesshh/learning/go/gophercises/phone-number-normalizer/repo"
 	_ "github.com/lib/pq"
-	"log"
-	"strconv"
 )
 
-type Phone struct {
-	Id     int64
-	Number string
-}
-
 func main() {
-	db, err := sql.Open("postgres", "postgresql://postgres@localhost/gophercises?sslmode=disable")
+	conn := "postgresql://postgres@localhost/gophercises?sslmode=disable"
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	repo, err := repo.Open("postgres", conn)
+	must(err)
 
-	defer db.Close()
+	defer repo.Close()
 
-	phones, err := read(db)
+	err = repo.Seed()
+	must(err)
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	phones, err := repo.All()
 
-	normalize(phones)
+	must(err)
 
-	err = write(db, phones)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Done!")
-}
-
-func write(db *sql.DB, phones []*Phone) error {
-	stmt, err := db.Prepare("UPDATE phone_numbers SET number = $1 WHERE id = $2")
-
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
+	fmt.Println("After")
+	printAll(phones)
 
 	for _, phone := range phones {
-		_, err := stmt.Exec(phone.Number, phone.Id)
-
-		if err != nil {
-			return err
-		}
+		phone.Number = normalizer.Normalize(phone.Number)
 	}
 
-	return nil
+	err = repo.Update(phones)
+	must(err)
+
+	fmt.Println("Before")
+	printAll(phones)
+
+	fmt.Println("Done!")
 }
 
-func read(db *sql.DB) ([]*Phone, error) {
-	rows, err := db.Query("select id, number from phone_numbers")
-
+func must(err error) {
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-
-	defer rows.Close()
-
-	var phones []*Phone
-
-	for rows.Next() {
-		phone := Phone{int64(1123), "foo"}
-
-		rows.Scan(&phone.Id, &phone.Number)
-
-		phones = append(phones, &phone)
-	}
-
-	return phones, nil
-
 }
 
-func normalize(phones []*Phone) {
+func printAll(phones []*repo.Phone) {
 	for _, phone := range phones {
-		phone.Number = normalizeNumber(phone.Number)
+		fmt.Printf("Phone %d => %s\n", phone.Id, phone.Number)
 	}
-}
-
-func normalizeNumber(phone string) string {
-	var normalized bytes.Buffer
-
-	for i := 0; i < len(phone); i++ {
-		char := phone[i]
-
-		_, err := strconv.ParseInt(string(char), 10, 32)
-
-		if err == nil {
-			normalized.WriteString(string(char))
-		}
-	}
-
-	return normalized.String()
 }
