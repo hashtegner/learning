@@ -96,9 +96,11 @@ func (repo Repo) transaction(fn transactionFunc) error {
 
 	err = fn()
 
-	if err == nil {
-		err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+
+		return err
 	}
 
-	return err
+	return tx.Commit()
 }
